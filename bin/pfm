@@ -31,7 +31,7 @@ $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 #version function
 sub main::VERSION_MESSAGE {
-	print "pfm 0.0.0\n";
+	print "pfm 0.0.1\n";
 };
 
 #print help
@@ -76,6 +76,17 @@ start in.
 
 Specifies if hidden files should be shown or not. It
 defaults to false if not specified.
+
+=head1 MENU INFORMATION
+
+=head2 m
+
+General purpose menu.
+
+=head2 r
+
+ZConf::Runner menu. This will is updated with the various
+ZConf::Runner actions for the currently selected mimetype.
 
 =head1 AUTHOR
 

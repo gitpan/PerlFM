@@ -11,6 +11,7 @@ use File::Stat::Bits;
 use String::ShellQuote;
 use ZConf::Bookmarks;
 use Gtk2::Chmod;
+use File::MimeInfo::Magic;
 
 =head1 NAME
 
@@ -18,11 +19,11 @@ PerlFM - A Perl based file manager.
 
 =head1 VERSION
 
-Version 0.0.0
+Version 0.1.0
 
 =cut
 
-our $VERSION = '0.0.0';
+our $VERSION = '0.1.0';
 
 
 =head1 SYNOPSIS
@@ -58,7 +59,7 @@ sub new {
 		%args= %{$_[1]};
 	}
 	
-	my $self={error=>undef, errorString=>''};
+	my $self={error=>undef, errorString=>'', defaultAction=>'view'};
 	bless $self;
 	
 	Gtk2->init;
@@ -177,7 +178,7 @@ sub addBM{
 
 	if ($pressed ne 'accept') {
 		#update the stuff
-		$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+		$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 		return undef;
 	}
 
@@ -190,7 +191,7 @@ sub addBM{
 									});
 	
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 	$_[1]{self}->updateBM( \%{$_[1]{gui}}, $_[1]{self} );
 }
 
@@ -301,7 +302,7 @@ sub chmod{
 	#return if ok was pressed
 	if ($returned{pressed} ne 'ok') {
 		#update the stuff
-		$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+		$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 		return undef;
 	}
 
@@ -326,7 +327,7 @@ sub chmod{
 	}
 
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 }
 
 =head2 chown
@@ -459,7 +460,7 @@ sub chown{
 	chown($user, $group, @entries);
 
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 }
 
 
@@ -643,7 +644,7 @@ sub delete{
 	#if not, return
 	if ($returned ne 'ok') {
 		#update the stuff
-		$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+		$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 		return undef;
 	}
 	
@@ -668,7 +669,7 @@ sub delete{
 	}
 
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 }
 
 =head2 deleteBM
@@ -684,18 +685,15 @@ sub deleteBM{
 	#if not, return
 	if ($returned ne 'ok') {
 		#update the stuff
-		$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+		$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 		return undef;
 	}
-
-	print "test\n\n";
 
 	my @selected=$_[1]->{gui}{bmlist}->get_selected_indices;
 	
 	my $int=0;
 	while (defined($selected[$int])) {
 		my $bmID=$_[1]{self}->{bookmarkReverse}[$selected[$int]];
-		print $bmID."\n\n";
 
 		$_[1]{self}->{zcbm}->delBookmark('file', $bmID);
 
@@ -703,7 +701,7 @@ sub deleteBM{
 	}
 	
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 	$_[1]{self}->updateBM( \%{$_[1]{gui}}, $_[1]{self} );
 }
 
@@ -720,8 +718,6 @@ sub editBM{
 	if (!defined($selected[0])) {
 		return undef;
 	}
-
-	print $selected[0]."\n";
 
 	#gets the bookmark ID
 	my $bmid=$_[1]{self}->{bookmarkReverse}[$selected[0]];
@@ -834,7 +830,7 @@ sub editBM{
 
 	if ($pressed ne 'accept') {
 		#update the stuff
-		$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+		$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 		return undef;
 	}
 
@@ -848,7 +844,7 @@ sub editBM{
 									});
 	
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
 	$_[1]{self}->updateBM( { gui=>$_[1]{gui}, self=>$_[1]{self} });
 
 }
@@ -925,12 +921,12 @@ sub filemanager{
 	$gui{check}->show;
 	$gui{check}->set_active($gui{hidden});
 	$gui{check}->signal_connect(toggled=>sub{
-									$_[1]{gui}{hidden}=$_[1]{gui}{check}->get_active;
-									$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+									$_[1]{self}{gui}{ $_[1]{id} }{hidden}=$_[1]{self}{gui}{ $_[1]{id} }{check}->get_active;
+									$_[1]{self}->update( $_[1]{id}, $_[1]{self} );
 								},
 								{
 								 self=>$self,
-								 gui=>\%gui,
+								 id=>$gui{id},
 								 }
 								);
 	$gui{menu}->append($gui{check});
@@ -988,26 +984,26 @@ sub filemanager{
 	$gui{showdirectories}->show;
 	$gui{showdirectories}->signal_connect(activate=>sub{
 											  #gets the current page
-											  my $cp=$_[1]{gui}{DBnotebook}->get_current_page;
+											  my $cp=$_[1]{self}{gui}{ $_[1]{id} }{DBnotebook}->get_current_page;
 											  
 											  if ($cp ne '0') {
-												  $_[1]{gui}{DBnotebook}->set_current_page(0);
-												  $_[1]{gui}{hpaned}->set_position(230);
-												  $_[1]{gui}{dirlist}->grab_focus;
+												  $_[1]{self}{gui}{ $_[1]{id} }{DBnotebook}->set_current_page(0);
+												  $_[1]{self}{gui}{ $_[1]{id} }{hpaned}->set_position(230);
+												  $_[1]{self}{gui}{ $_[1]{id} }{dirlist}->grab_focus;
 											  }else {
-												  my $pos=$_[1]{gui}{hpaned}->get_position();
+												  my $pos=$_[1]{self}{gui}{ $_[1]{id} }{hpaned}->get_position();
 												  if ($pos ne '0') {
-													  $_[1]{gui}{hpaned}->set_position(0);
-													  $_[1]{gui}{list}->grab_focus;
+													  $_[1]{self}{gui}{ $_[1]{id} }{hpaned}->set_position(0);
+													  $_[1]{self}{gui}{ $_[1]{id} }{list}->grab_focus;
 												  }else {
-													  $_[1]{gui}{hpaned}->set_position(230);
-													  $_[1]{gui}{dirlist}->grab_focus;
+													  $_[1]{self}{gui}{ $_[1]{id} }{hpaned}->set_position(230);
+													  $_[1]{self}{gui}{ $_[1]{id} }{dirlist}->grab_focus;
 												  }
 											  }
 										  },
 										  {
-											  gui=>\%gui,
-											  self=>$self,
+										   id=>$gui{id},
+										   self=>$self,
 										  }
 										  );
 	$gui{menu}->append($gui{showdirectories});
@@ -1016,26 +1012,26 @@ sub filemanager{
 	$gui{showbookmarks}->show;
 	$gui{showbookmarks}->signal_connect(activate=>sub{
 											#gets the current page
-											my $cp=$_[1]{gui}{DBnotebook}->get_current_page;
+											my $cp=$_[1]{self}{gui}{ $_[1]{id} }{DBnotebook}->get_current_page;
 											
 											if ($cp ne '1') {
-												$_[1]{gui}{DBnotebook}->set_current_page(1);
-												$_[1]{gui}{hpaned}->set_position(230);
-												$_[1]{gui}{bmlist}->grab_focus;
+												$_[1]{self}{gui}{ $_[1]{id} }{DBnotebook}->set_current_page(1);
+												$_[1]{self}{gui}{ $_[1]{id} }{hpaned}->set_position(230);
+												$_[1]{self}{gui}{ $_[1]{id} }{bmlist}->grab_focus;
 											}else {
-												my $pos=$_[1]{gui}{hpaned}->get_position();
+												my $pos=$_[1]{self}{gui}{ $_[1]{id} }{hpaned}->get_position();
 												if ($pos ne '0') {
-													$_[1]{gui}{hpaned}->set_position(0);
-													$_[1]{gui}{list}->grab_focus;
+													$_[1]{self}{gui}{ $_[1]{id} }{hpaned}->set_position(0);
+													$_[1]{self}{gui}{ $_[1]{id} }{list}->grab_focus;
 												}else {
-													$_[1]{gui}{hpaned}->set_position(230);
-													$_[1]{gui}{bmlist}->grab_focus;
+													$_[1]{self}{gui}{ $_[1]{id} }{hpaned}->set_position(230);
+													$_[1]{self}{gui}{ $_[1]{id} }{bmlist}->grab_focus;
 												}
 											}
 										  },
 										  {
-											  gui=>\%gui,
-											  self=>$self,
+										   id=>$gui{id},
+										   self=>$self,
 										  }
 										  );
 	$gui{menu}->append($gui{showbookmarks});
@@ -1050,7 +1046,7 @@ sub filemanager{
 								   exit 0;
 							   },
 							   {
-								gui=>\%gui,
+								id=>$gui{id},
 								self=>$self,
 								}
 							   );
@@ -1059,13 +1055,18 @@ sub filemanager{
 	$gui{buttonHB}->pack_start($gui{menubar}, 0, 0, 0);
 	$gui{VB}->pack_start($gui{buttonHB}, 0, 1, 0);
 
+	#rmenu init
+	$gui{rmenubarmenu}=Gtk2::MenuItem->new('_r');
+	$gui{rmenubarmenu}->show;
+	$gui{menubar}->append($gui{rmenubarmenu});
+
 	#This is the pathbuttonbar
 	$gui{PB}=Gtk2::PathButtonBar->new({
 									   exec=>'chdir("/".${$myself}->{path}); '.
-									         '${$myself}->{vars}{pfm}->update( \%{ ${$myself}->{vars}{gui} }, ${$myself}->{vars}{pfm} ); ',
+									         '${$myself}->{vars}{pfm}->update( ${$myself}->{vars}{id}, ${$myself}->{vars}{pfm} ); ',
 									   vars=>{
 											  pfm=>$self,
-											  gui=>\%gui,
+											  id=>$gui{id},
 											  },
 									});
 	$gui{buttonHB}->pack_start($gui{PB}->{vbox}, 1, 1, 0);
@@ -1094,15 +1095,15 @@ sub filemanager{
 	$gui{dirlist}->get_selection->set_mode ('multiple');
 	$gui{dirlist}->show;
 	$gui{dirlist}->signal_connect(row_activated=>sub{
-									  my @selected=$_[3]->{gui}{dirlist}->get_selected_indices;
+									  my @selected=$_[3]->{self}{gui}{ $_[3]{id} }{dirlist}->get_selected_indices;
 
-									  chdir($_[3]{self}{data}{ $_[3]{self}{id} }{data}{dirreverse}[$selected[0]]);
+									  chdir($_[3]{self}{data}{ $_[3]{id} }{data}{dirreverse}[$selected[0]]);
 
-									  $_[3]{self}->update( \%{$_[3]{gui}}, $_[3]{self} );
+									  $_[3]{self}->update( $_[3]{id}, $_[3]{self} );
 								  },
 								  {
 								   self=>$self,
-								   gui=>\%gui,
+								   id=>$gui{id},
 								   }
 								  );
 	$gui{dirlistSW}->add($gui{dirlist});
@@ -1120,7 +1121,7 @@ sub filemanager{
 	$gui{bmlist}->get_selection->set_mode ('multiple');
 	$gui{bmlist}->show;
 	$gui{bmlist}->signal_connect(row_activated=>sub{
-									 my @selected=$_[3]->{gui}{bmlist}->get_selected_indices;
+									 my @selected=$_[3]->{self}{gui}{ $_[3]{id} }{bmlist}->get_selected_indices;
 
 									 my $bmID=$_[3]{self}->{bookmarkReverse}[$selected[0]];
 
@@ -1134,12 +1135,12 @@ sub filemanager{
 									 chdir($bookmark{link});
 
 									 #update it
-									 $_[3]{self}->update( \%{$_[3]{gui}}, $_[3]{self} );
+									 $_[3]{self}->update( $_[3]{id} , $_[3]{self} );
 								 },
 								 {
-								   self=>$self,
-								   gui=>\%gui,
-								   }
+								  self=>$self,
+								  id=>$gui{id},
+								  }
 								 );
 	$gui{bmlistSW}->add($gui{bmlist});
 	$gui{bmlistVB}->pack_start($gui{bmlistSW}, 1, 1, 0);
@@ -1187,13 +1188,13 @@ sub filemanager{
 	$gui{list}->get_selection->set_mode ('multiple');
 	$gui{list}->show;
 	$gui{list}->signal_connect(row_activated=>sub{
-									  my @selected=$_[3]->{gui}{list}->get_selected_indices;
+									  my @selected=$_[3]->{self}{gui}{ $_[3]{id} }{list}->get_selected_indices;
 
-									  my $entry=$_[3]{self}{data}{ $_[3]{gui}{id} }{data}{reverse}[$selected[0]];
+									  my $entry=$_[3]{self}{data}{ $_[3]{id} }{data}{reverse}[$selected[0]];
 
 									  if(-d $entry){
-										  chdir( $_[3]{self}{data}{ $_[3]{gui}{id} }{data}{reverse}[$selected[0]] );
-										  $_[3]{self}->update( \%{$_[3]{gui}}, $_[3]{self} );
+										  chdir( $_[3]{self}{data}{ $_[3]{id} }{data}{reverse}[$selected[0]] );
+										  $_[3]{self}->update( $_[3]{id}, $_[3]{self} );
 									  }else {
 										  if (-x $entry) {
 											  #If it has a . in it, it may not be a executable file
@@ -1211,21 +1212,50 @@ sub filemanager{
 								  },
 								  {
 								   self=>$self,
-								   gui=>\%gui,
+								   id=>$gui{id},
+								   }
+							   );
+	$gui{list}->signal_connect('cursor-changed'=>sub{
+								   my $self=$_[1]{self};
+								   my $id=$_[1]{id};
+								   
+								   $self->updateRmenu($id);
+								  },
+								  {
+								   self=>$self,
+								   id=>$gui{id},
 								   }
 							   );
 	$gui{listSW}->add($gui{list});
 	$gui{hpaned}->add2($gui{listSW});
 
-	$self->update(\%gui, $self);
+	#save the gui
+	$self->{gui}{$gui{id}}=\%gui;
+
+	$self->update($gui{id}, $self);
 
 	#update the bookmarks
 	$self->updateBM({ gui=>\%gui, self=>$self });
 
-	#save the gui
-	$self->{gui}{$gui{id}}=\%gui;
-
 	return %gui;
+}
+
+=head2 getAction
+
+This fetches the default action.
+
+    my $action=$self->getAction;
+
+=cut
+
+sub getAction{
+	my $self=$_[0];
+
+	if (!defined($self->{defaultAction})) {
+		return 'view';
+	}
+
+	return $self->{defaultAction};
 }
 
 =head2 mkdir
@@ -1291,33 +1321,198 @@ sub mkdir{
 	}
 
 	#update the stuff
-	$_[1]{self}->update( \%{$_[1]{gui}}, $_[1]{self} );
+	$_[1]{self}->update( $_[1]{gui}{id}, $_[1]{self} );
+}
+
+=head2 runViaNew
+
+This is the call back that is called when
+a entry is asked to be run via new a new
+action.
+
+=cut
+
+sub runViaNew{
+	my $self=$_[1];
+	my $guiID=$_[2];
+	my $item=$_[3];
+	
+	my $text='';
+	my $window = Gtk2::Dialog->new('Run Via New Action',
+								   undef,
+								   [qw/modal destroy-with-parent/],
+								   'gtk-cancel'     => 'cancel',
+								   'gtk-ok'     => 'accept',
+								   );
+	
+	$window->set_position('center-always');
+	
+	$window->set_response_sensitive ('accept', 0);
+	$window->set_response_sensitive ('reject', 0);
+	
+	my $vbox = $window->vbox;
+	$vbox->set_border_width(5);
+	
+	my $label = Gtk2::Label->new_with_mnemonic('Name for new action?');
+	$vbox->pack_start($label, 0, 0, 1);
+	$label->show;
+	
+	my $entry = Gtk2::Entry->new();
+	$vbox->pack_end($entry, 0, 0, 1);
+	$entry->show;
+	
+	$entry->signal_connect (changed => sub {
+								my $text = $entry->get_text;
+								$window->set_response_sensitive ('accept', $text !~ m/^\s*$/);
+								$window->set_response_sensitive ('reject', 1);
+							}
+							);
+	
+	my $action;
+	my $pressed;
+	
+	$window->signal_connect(response => sub {
+								$action=$entry->get_text;
+								$pressed=$_[1];
+							}
+							);
+	#runs the dailog and gets the response
+	#'cancel' means the user decided not to create a new set
+	#'accept' means the user wants to create a new set with the entered name
+	my $response=$window->run;
+	
+	$window->destroy;
+	
+	#set the pressed to reject if 
+	if (($action eq '' )&&($pressed eq 'accept')) {
+		$pressed='reject';
+		return;
+	}
+	
+	if ($pressed eq 'accept') {
+		system('zcrunner -a '.shell_quote($action).' -o '.shell_quote($item).' &');
+	}
+
+	#update the stuff
+	$self->{zcr}->readSet();
+	$self->{zcrUpdate}=1;
+	$self->update( $guiID, $self );
+	$self->updateRmenu($guiID);
+}
+
+=head2 setAction
+
+This sets the default action to use with the ZConf::Runner.
+
+One arguement is taken and that is the name of the action.
+
+    $pfm-setAction($action);
+
+=cut
+
+sub setAction{
+	my $self=$_[0];
+	my $action=$_[1];
+
+	if (!defined($action)) {
+		return undef;
+	}
+
+	$self->{defaultAction}=$action;
+
+	return undef;
+}
+
+=head2 setActionCB
+
+This is the call back used by the set default action
+button.
+
+=cut
+
+sub setActionCB{
+	my $self=$_[1];
+	my $guiID=$_[2];
+	
+	my $text='';
+	my $window = Gtk2::Dialog->new('Set Default Action',
+								   undef,
+								   [qw/modal destroy-with-parent/],
+								   'gtk-cancel'     => 'cancel',
+								   'gtk-ok'     => 'accept',
+								   );
+	
+	$window->set_position('center-always');
+	
+	$window->set_response_sensitive ('accept', 0);
+	$window->set_response_sensitive ('reject', 0);
+	
+	my $vbox = $window->vbox;
+	$vbox->set_border_width(5);
+	
+	my $label = Gtk2::Label->new_with_mnemonic('New default action?');
+	$vbox->pack_start($label, 0, 0, 1);
+	$label->show;
+	
+	my $entry = Gtk2::Entry->new();
+	$vbox->pack_end($entry, 0, 0, 1);
+	$entry->show;
+	
+	$entry->signal_connect (changed => sub {
+								my $text = $entry->get_text;
+								$window->set_response_sensitive ('accept', $text !~ m/^\s*$/);
+								$window->set_response_sensitive ('reject', 1);
+							}
+							);
+	
+	my $action;
+	my $pressed;
+	
+	$window->signal_connect(response => sub {
+								$action=$entry->get_text;
+								$pressed=$_[1];
+							}
+							);
+	#runs the dailog and gets the response
+	#'cancel' means the user decided not to create a new set
+	#'accept' means the user wants to create a new set with the entered name
+	my $response=$window->run;
+	
+	$window->destroy;
+	
+	#set the pressed to reject if 
+	if (($action eq '' )&&($pressed eq 'accept')) {
+		$pressed='reject';
+		return;
+	}
+	
+	$self->setAction($action);
+
+	$self->update( $guiID, $self );
+	$self->updateRmenu($guiID);
 }
 
 =head2 update
 
-=head3 args hash
+This is the is used by callbacks for updating.
 
-=head4 gui
-
-This is the GUI hash and builds a 
-
-    $pfm->update(\%gui, $self);
+    $pfm->update($gui{id}, $self);
 
 =cut
 
 sub update{
 #	my $self=$_[0];
-	my %gui;
-	if (defined($_[1])) {
-		%gui=%{$_[1]};
-	}
+#	my %gui;
+#	if (defined($_[1])) {
+#		%gui=%{$_[1]};
+#	}
+	my $guiID=$_[1];
 	my $self=$_[2];
 
-	if (!defined($gui{VB})) {
-		warn('PerlFM update: The passed GUI hash does not appear to be something returned by the filemanager method');
-		return undef;
-	}
+#	if (!defined($gui{VB})) {
+#		warn('PerlFM update: The passed GUI hash does not appear to be something returned by the filemanager method');
+#		return undef;
+#	}
 
 	#set the window title
 	if (defined($self->{window})) {
@@ -1325,8 +1520,8 @@ sub update{
 	}
 
 	#gets the data
-	my %datahash=$self->datahash($gui{hidden});
-	$self->{data}{$gui{id}}{data}=\%datahash;
+	my %datahash=$self->datahash($self->{gui}{$guiID}{hidden});
+	$self->{data}{$guiID}{data}=\%datahash;
 
 	$self->{test}="3\n\n";
 
@@ -1336,33 +1531,44 @@ sub update{
 	my $int=0;
 	while (defined( $datahash{reverse}[$int] )) {
 		my $entry=$datahash{reverse}[$int];
+		my $atime=localtime($datahash{names}{$entry}{atime});
+		my $ctime=localtime($datahash{names}{$entry}{ctime});
+		my $mtime=localtime($datahash{names}{$entry}{mtime});
+		my ($name,$passwd,$uid,$gid,$quota,$comment,$gcos,$dir,$shell,$expire) = getpwuid($datahash{names}{$entry}{uid});
+		if (!defined($name)) {
+			$name=$datahash{names}{$entry}{uid};
+		}
+		my ($gname,$gpasswd,$ggid,$members) = getgrgid($datahash{names}{$entry}{gid});
+		if (!defined($gname)) {
+			$gname=$datahash{names}{$entry}{gid};
+		}
 
 		if (-d $entry) {
 			my @row=(
 					 $entry,
 					 );
 			my @row2=(
-					 $entry,
-					 $datahash{names}{$entry}{uid},
-					 $datahash{names}{$entry}{gid},
-					 $datahash{names}{$entry}{mode},
-					 $datahash{names}{$entry}{size},
-					 $datahash{names}{$entry}{mtime},
-					 $datahash{names}{$entry}{ctime},
-					 $datahash{names}{$entry}{atime}
-					 );
+					  $entry,
+					  $name,
+					  $gname,
+					  $datahash{names}{$entry}{mode},
+					  $datahash{names}{$entry}{size},
+					  $mtime,
+					  $ctime,
+					  $atime
+					  );
 			push(@dirlistdata2, \@row2);
 			push(@dirlistdata, \@row);
 		}else {
 			my @row=(
 					 $entry,
-					 $datahash{names}{$entry}{uid},
-					 $datahash{names}{$entry}{gid},
+					 $name,
+					 $gname,
 					 $datahash{names}{$entry}{mode},
 					 $datahash{names}{$entry}{size},
-					 $datahash{names}{$entry}{mtime},
-					 $datahash{names}{$entry}{ctime},
-					 $datahash{names}{$entry}{atime}
+					 $mtime,
+					 $ctime,
+					 $atime
 					 );
 			push(@listdata, \@row);
 		}
@@ -1374,11 +1580,11 @@ sub update{
 	push(@fulllist, @dirlistdata2);
 	push(@fulllist, @listdata);
 
-	@{$gui{list}->{data}}=@fulllist;
+	@{$self->{gui}{$guiID}{list}->{data}}=@fulllist;
 
-	@{$gui{dirlist}->{data}}=@dirlistdata;
+	@{$self->{gui}{$guiID}{dirlist}->{data}}=@dirlistdata;
 
-	$gui{PB}->setPath(cwd);
+	$self->{gui}{$guiID}{PB}->setPath(cwd);
 
 }
 
@@ -1460,7 +1666,121 @@ sub updateBM{
 	#this is a the reverse hash
 	$h{self}->{bookmarkReverse}=\@reverse;
 
-	@{$h{gui}{bmlist}->{data}}=@names;
+	@{$h{self}{gui}{ $h{gui}{id} }{bmlist}->{data}}=@names;
+
+}
+
+=head2 updateRmenu
+
+This updates the r menu and used by various callbacks.
+
+=cut
+
+sub updateRmenu{
+	my $self=$_[0];
+	my $guiID=$_[1];
+
+	#update if needed
+	if (defined($self->{zcrUpdate})) {
+		if ($self->{zcrUpdate} eq '1'){
+			$self->{zcr}->readSet();
+			$self->{zcrUpdate}=0;
+		}
+	}
+
+	#get the selected entry
+	my @selected=$self->{gui}{ $guiID }{list}->get_selected_indices;
+	#return if we don't have any thing
+	if (!defined($selected[0])) {
+		return undef;
+	}
+	my $entry=$self->{data}{ $guiID }{data}{reverse}[$selected[0]];
+
+	#get the mimetype
+	my $mimetype=mimetype($entry);
+
+	#if that mime type is setup, get the available entries
+	my $avail=$self->{zcr}->mimetypeIsSetup($mimetype);
+	my @available;
+	if ($avail) {
+		@available=$self->{zcr}->listActions($mimetype);
+	}
+
+	#the enw rmenu
+	my $rmenu=Gtk2::Menu->new;
+	$rmenu->new;
+
+	my $to=Gtk2::TearoffMenuItem->new;
+	$to->show;
+	$rmenu->append($to);
+
+	#add the new itme
+	my $new=Gtk2::MenuItem->new('run via a _new action');
+	$new->show;
+	$new->signal_connect(activate=>sub{
+							 $_[1]{self}->runViaNew($_[1]{self}, $_[1]{id}, $_[1]{entry});
+						 },
+						 {
+						  id=>$guiID,
+						  self=>$self,
+						  entry=>$entry,
+						  }
+						 );
+	$rmenu->append($new);
+
+	#add the new itme
+	my $set=Gtk2::MenuItem->new('_set default action ('.$self->getAction.')');
+	$set->show;
+	$set->signal_connect(activate=>sub{
+							 $_[1]{self}->setActionCB($_[1]{self}, $_[1]{id});
+						 },
+						 {
+						  id=>$guiID,
+						  self=>$self,
+						  entry=>$entry,
+						  }
+						 );
+	$rmenu->append($set);
+
+	#add the refresh item
+	my $refresh=Gtk2::MenuItem->new('_refresh');
+	$refresh->show;
+	$refresh->signal_connect(activate=>sub{
+							 $_[1]{self}->{zcr}->readSet;
+							 $_[1]{self}->updateRmenu($_[1]{id});
+						 },
+						 {
+						  id=>$guiID,
+						  self=>$self,
+						  entry=>$entry,
+						  }
+						 );
+	$rmenu->append($refresh);
+
+	my $so=Gtk2::SeparatorMenuItem->new();
+	$so->show;
+	$rmenu->append($so);
+	
+	#process all actions
+	my @actions;
+	my $int=0;
+	while (defined($available[$int])) {
+		$actions[$int]=Gtk2::MenuItem->new('_'.$int.' '.$available[$int]);
+		$actions[$int]->show;
+		$actions[$int]->signal_connect(activate=>sub{
+										   system('zcrunner -a '.shell_quote($_[1]{action}).' -o '.shell_quote($_[1]{entry}).' &');
+									   },
+									   {
+										action=>$available[$int],
+										entry=>$entry,
+										}
+									   );
+		$rmenu->append($actions[$int]);
+		$int++;
+	}
+
+	#add the menu
+	$self->{gui}{ $guiID }{rmenubarmenu}->set_submenu($rmenu);
 
 }
 
