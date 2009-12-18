@@ -12,6 +12,7 @@ use String::ShellQuote;
 use ZConf::Bookmarks;
 use Gtk2::Chmod;
 use File::MimeInfo::Magic;
+use Dir::Watch;
 
 =head1 NAME
 
@@ -19,11 +20,11 @@ PerlFM - A Perl based file manager.
 
 =head1 VERSION
 
-Version 0.1.0
+Version 0.2.0
 
 =cut
 
-our $VERSION = '0.1.0';
+our $VERSION = '0.2.0';
 
 
 =head1 SYNOPSIS
@@ -282,6 +283,31 @@ sub askYN{
         $window->destroy;
 
         return $pressed;
+}
+
+=head2 checkForUpdate
+
+This checks for any updates to a directory.
+
+One arguement is accepted and it is a 
+
+    $pfm->checkForUpdate($guiID);
+
+=cut
+
+sub checkForUpdate{
+	my $self=$_[0];
+	my $guiID=$_[1];
+
+	if (!defined($self->{gui}{$guiID})) {
+		return undef;
+	}
+
+	if ( $self->{gui}{$guiID}{watcher}->check() ) {
+		$self->update($guiID, $self);
+	}
+
+	return 1;
 }
 
 =head2 chmod
@@ -1229,6 +1255,29 @@ sub filemanager{
 	$gui{listSW}->add($gui{list});
 	$gui{hpaned}->add2($gui{listSW});
 
+	#adds the watcher
+	$gui{watcher}=Dir::Watch->new();
+
+	$gui{timer}=Glib::Timeout->add('2000',
+								   sub{
+									   #this should never happen, but check any ways
+									   if (!defined( $_[0]{id} )) {
+										   return 0;
+									   }
+									   #remove it if needed
+									   if (!defined( $_[0]{self}->{gui}{$_[0]{id}} )) {
+										   return 0;
+									   }
+
+									   $_[0]{self}->checkForUpdate($_[0]{id});
+									   return 1;
+								   },
+								   {
+									self=>$self,
+									id=>$gui{id},
+									}
+								   );
+
 	#save the gui
 	$self->{gui}{$gui{id}}=\%gui;
 
@@ -1586,6 +1635,7 @@ sub update{
 
 	$self->{gui}{$guiID}{PB}->setPath(cwd);
 
+	$self->{gui}{$guiID}{watcher}=Dir::Watch->new;
 }
 
 =head2 updateBM

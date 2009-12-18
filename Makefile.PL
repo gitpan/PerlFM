@@ -24,6 +24,7 @@ WriteMakefile(
 							'String::ShellQuote'=>0,
 							'Test::More'=>0,
 							'File::MimeInfo::Magic'=>0,
+							'Dir::Watch'=>0,
 							},
 			  dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
 			  clean               => { FILES => 'PerlFM-*' },
